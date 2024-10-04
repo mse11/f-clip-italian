@@ -20,6 +20,7 @@ import jax
 import jax.numpy as jnp
 from configuration_hybrid_clip import HybridCLIPConfig
 from flax.core.frozen_dict import FrozenDict
+
 from transformers import FLAX_MODEL_MAPPING, FlaxCLIPVisionModel
 from transformers.modeling_flax_utils import FlaxPreTrainedModel
 from transformers.models.clip.modeling_flax_clip import FlaxCLIPOutput
@@ -52,13 +53,13 @@ class FlaxHybridCLIPModule(nn.Module):
         self.visual_projection = nn.Dense(
             self.projection_dim,
             dtype=self.dtype,
-            kernel_init=jax.nn.initializers.normal(0.02, dtype=self.dtype),
+            kernel_init=jax.nn.initializers.normal(0.02),
             use_bias=False,
         )
         self.text_projection = nn.Dense(
             self.projection_dim,
             dtype=self.dtype,
-            kernel_init=jax.nn.initializers.normal(0.02, dtype=self.dtype),
+            kernel_init=jax.nn.initializers.normal(0.02),
             use_bias=False,
         )
         self.logit_scale = self.param("logit_scale", jax.nn.initializers.ones, []) * 20
@@ -140,7 +141,7 @@ class FlaxHybridCLIP(FlaxPreTrainedModel):
         input_shape: Optional[Tuple] = None,
         seed: int = 0,
         dtype: jnp.dtype = jnp.float32,
-        **kwargs
+        **kwargs,
     ):
         if input_shape is None:
             input_shape = ((1, 1), (1, config.vision_config.image_size, config.vision_config.image_size, 3))
@@ -148,7 +149,7 @@ class FlaxHybridCLIP(FlaxPreTrainedModel):
         module = self.module_class(config=config, dtype=dtype, **kwargs)
         super().__init__(config, module, input_shape=input_shape, seed=seed, dtype=dtype)
 
-    def init_weights(self, rng: jax.random.PRNGKey, input_shape: Tuple) -> FrozenDict:
+    def init_weights(self, rng: jax.random.PRNGKey, input_shape: Tuple, params: FrozenDict = None) -> FrozenDict:
         # init input tensor
         input_ids = jnp.zeros(input_shape[0], dtype="i4")
         position_ids = jnp.broadcast_to(jnp.arange(jnp.atleast_2d(input_ids).shape[-1]), input_shape[0])
@@ -216,6 +217,7 @@ class FlaxHybridCLIP(FlaxPreTrainedModel):
         attention_mask=None,
         position_ids=None,
         token_type_ids=None,
+        params: dict = None,
         dropout_rng: jax.random.PRNGKey = None,
         train=False,
     ):
@@ -232,7 +234,7 @@ class FlaxHybridCLIP(FlaxPreTrainedModel):
                 `What are input IDs? <../glossary.html#input-ids>`__
 
         Returns:
-            text_features (:obj:`jax_xla.DeviceArray` of shape :obj:`(batch_size, output_dim`): The text embeddings
+            text_features (:obj:`jnp.ndarray` of shape :obj:`(batch_size, output_dim`): The text embeddings
             obtained by applying the projection layer to the pooled output of text model.
         """
         if position_ids is None:
@@ -262,7 +264,7 @@ class FlaxHybridCLIP(FlaxPreTrainedModel):
             return text_features
 
         return self.module.apply(
-            {"params": self.params},
+            {"params": params or self.params},
             jnp.array(input_ids, dtype="i4"),
             jnp.array(attention_mask, dtype="i4"),
             jnp.array(position_ids, dtype="i4"),
@@ -272,7 +274,9 @@ class FlaxHybridCLIP(FlaxPreTrainedModel):
             rngs=rngs,
         )
 
-    def get_image_features(self, pixel_values, dropout_rng: jax.random.PRNGKey = None, train=False):
+    def get_image_features(
+        self, pixel_values, params: dict = None, dropout_rng: jax.random.PRNGKey = None, train=False
+    ):
         r"""
         Args:
             pixel_values (:obj:`numpy.ndarray` of shape :obj:`(batch_size, num_channels, height, width)`):
@@ -281,7 +285,7 @@ class FlaxHybridCLIP(FlaxPreTrainedModel):
                 :meth:`transformers.ImageFeatureExtractionMixin.__call__` for details.
 
         Returns:
-            image_features (:obj:`jax_xla.DeviceArray` of shape :obj:`(batch_size, output_dim`): The image embeddings
+            image_features (:obj:`jnp.ndarray` of shape :obj:`(batch_size, output_dim`): The image embeddings
             obtained by applying the projection layer to the pooled output of vision model.
         """
 
@@ -297,7 +301,7 @@ class FlaxHybridCLIP(FlaxPreTrainedModel):
             return image_features
 
         return self.module.apply(
-            {"params": self.params},
+            {"params": params or self.params},
             jnp.array(pixel_values, dtype=jnp.float32),
             not train,
             method=_get_features,
@@ -318,8 +322,6 @@ class FlaxHybridCLIP(FlaxPreTrainedModel):
                 Information necessary to initiate the text model. Can be either:
 
                     - A string, the `model id` of a pretrained model hosted inside a model repo on huggingface.co.
-                      Valid model ids can be located at the root-level, like ``bert-base-uncased``, or namespaced under
-                      a user or organization name, like ``dbmdz/bert-base-german-cased``.
                     - A path to a `directory` containing model weights saved using
                       :func:`~transformers.FlaxPreTrainedModel.save_pretrained`, e.g., ``./my_model_directory/``.
                     - A path or url to a `PyTorch checkpoint folder` (e.g, ``./pt_model``). In
@@ -331,8 +333,6 @@ class FlaxHybridCLIP(FlaxPreTrainedModel):
                 Information necessary to initiate the vision model. Can be either:
 
                     - A string, the `model id` of a pretrained model hosted inside a model repo on huggingface.co.
-                      Valid model ids can be located at the root-level, like ``bert-base-uncased``, or namespaced under
-                      a user or organization name, like ``dbmdz/bert-base-german-cased``.
                     - A path to a `directory` containing model weights saved using
                       :func:`~transformers.FlaxPreTrainedModel.save_pretrained`, e.g., ``./my_model_directory/``.
                     - A path or url to a `PyTorch checkpoint folder` (e.g, ``./pt_model``). In
@@ -358,7 +358,7 @@ class FlaxHybridCLIP(FlaxPreTrainedModel):
             >>> from transformers import FlaxHybridCLIP
             >>> # initialize a model from pretrained BERT and CLIP models. Note that the projection layers will be randomly initialized.
             >>> # If using CLIP's vision model the vision projection layer will be initialized using pre-trained weights
-            >>> model = FlaxHybridCLIP.from_text_vision_pretrained('bert-base-uncased', 'openai/clip-vit-base-patch32')
+            >>> model = FlaxHybridCLIP.from_text_vision_pretrained('google-bert/bert-base-uncased', 'openai/clip-vit-base-patch32')
             >>> # saving model after fine-tuning
             >>> model.save_pretrained("./bert-clip")
             >>> # load fine-tuned model

@@ -20,7 +20,7 @@ The script can be used to train CLIP like models for languages other than englis
 a text encoder pre-trained in the desired language. Currently this script support the following vision
 and text models:
 Vision models: ViT(https://huggingface.co/models?filter=vit), CLIP (https://huggingface.co/models?filter=clip)
-Text models: BERT, ROBERTa (https://huggingface.co/models?filter=masked-lm)
+Text models: BERT, ROBERTa (https://huggingface.co/models?filter=fill-mask)
 """
 
 import json
@@ -111,14 +111,18 @@ class ModelArguments:
 
     text_model_name_or_path: str = field(
         metadata={
-            "help": "The text model checkpoint for weights initialization."
-            "Don't set if you want to train a model from scratch."
+            "help": (
+                "The text model checkpoint for weights initialization. "
+                "Don't set if you want to train a model from scratch."
+            )
         },
     )
     vision_model_name_or_path: str = field(
         metadata={
-            "help": "The vision model checkpoint for weights initialization."
-            "Don't set if you want to train a model from scratch."
+            "help": (
+                "The vision model checkpoint for weights initialization. "
+                "Don't set if you want to train a model from scratch."
+            )
         },
     )
     from_pt: bool = field(
@@ -154,7 +158,10 @@ class ModelArguments:
     dtype: Optional[str] = field(
         default="float32",
         metadata={
-            "help": "Floating-point format in which the model weights should be initialized and trained. Choose one of `[float32, float16, bfloat16]`."
+            "help": (
+                "Floating-point format in which the model weights should be initialized and trained. Choose one of"
+                " `[float32, float16, bfloat16]`."
+            )
         },
     )
 
@@ -179,22 +186,28 @@ class DataTrainingArguments:
     max_seq_length: Optional[int] = field(
         default=72,
         metadata={
-            "help": "The maximum total input sequence length after tokenization. Sequences longer "
-            "than this will be truncated, sequences shorter will be padded."
+            "help": (
+                "The maximum total input sequence length after tokenization. Sequences longer "
+                "than this will be truncated, sequences shorter will be padded."
+            )
         },
     )
     max_train_samples: Optional[int] = field(
         default=None,
         metadata={
-            "help": "For debugging purposes or quicker training, truncate the number of training examples to this "
-            "value if set."
+            "help": (
+                "For debugging purposes or quicker training, truncate the number of training examples to this "
+                "value if set."
+            )
         },
     )
     max_eval_samples: Optional[int] = field(
         default=None,
         metadata={
-            "help": "For debugging purposes or quicker training, truncate the number of evaluation examples to this "
-            "value if set."
+            "help": (
+                "For debugging purposes or quicker training, truncate the number of evaluation examples to this "
+                "value if set."
+            )
         },
     )
     overwrite_cache: bool = field(
@@ -305,6 +318,7 @@ class ImageTextDataset(VisionDataset):
         seed=42,
     ):
         super().__init__(root, transforms, transform, target_transform)
+
         with open(file_path, "r") as f:
             examples = [json.loads(line) for line in f.readlines()]
 
@@ -325,8 +339,7 @@ class ImageTextDataset(VisionDataset):
 
     def _load_image(self, idx: int):
         path = self.image_paths[idx]
-        im = read_image(path, mode=ImageReadMode.RGB)
-        return im
+        return read_image(path, mode=ImageReadMode.RGB)
 
     def _load_target(self, idx):
         return self.rand_generator.choice(self.captions[idx])
@@ -419,7 +432,7 @@ def create_learning_rate_fn(
     num_warmup_steps: int,
     learning_rate: float,
     linear=False,
-) -> Callable[[int], jnp.array]:
+) -> Callable[[int], jnp.ndarray]:
     """Returns a linear warmup, linear_decay learning rate function."""
     steps_per_epoch = train_ds_size // train_batch_size
     num_train_steps = steps_per_epoch * num_train_epochs
@@ -478,7 +491,7 @@ def main():
         and not training_args.overwrite_output_dir
     ):
         raise ValueError(
-            f"Output directory ({training_args.output_dir}) already exists and is not empty."
+            f"Output directory ({training_args.output_dir}) already exists and is not empty. "
             "Use --overwrite_output_dir to overcome."
         )
 
@@ -512,7 +525,7 @@ def main():
         )
     else:
         raise ValueError(
-            "You are instantiating a new tokenizer from scratch. This is not supported by this script."
+            "You are instantiating a new tokenizer from scratch. This is not supported by this script. "
             "You can do it from another script, save it, and load it from here, using --tokenizer_name."
         )
 
@@ -540,7 +553,7 @@ def main():
             model_args.vision_model_name_or_path,
             seed=training_args.seed,
             dtype=getattr(jnp, model_args.dtype),
-            text_from_pt=False,
+            text_from_pt=model_args.from_pt,
             vision_from_pt=model_args.from_pt,
             freeze_backbones=args.freeze_backbones
         )
