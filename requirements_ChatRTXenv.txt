@@ -1,0 +1,29 @@
+##########################
+# f-clip-italian
+##########################
+comet-ml==3.32.6       # DEPENDENCY FROM ngcsdk 3.41.2 requires rich==12.6.0 (from comet-ml==3.32.7 use rich>=13.3.2 which is incompatible)
+python-dotenv
+tqdm
+# FLAX
+numpy==1.24.0  # DEPENDENCY FROM tensorrt-llm==0.9.0
+chex==0.1.7
+optax==0.2.1
+jax==0.4.34
+jaxlib==0.4.34
+flax==0.9.0
+# CUDA
+--extra-index-url https://download.pytorch.org/whl/cu121
+torch==2.2.0+cu121 
+torchvision==0.17.0+cu121 
+torchaudio==2.2.0+cu121 
+
+##########################
+# HF-clip-italian-demo
+##########################
+transformers==4.38.2 # DEPENDENCY FROM tensorrt-llm==0.9.0
+natsort
+stqdm
+pandas
+requests
+psutil
+streamlit
