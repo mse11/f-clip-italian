@@ -33,7 +33,7 @@ logger = logging.get_logger(__name__)
 class FlaxHybridCLIPModule(nn.Module):
     config: HybridCLIPConfig
     dtype: jnp.dtype = jnp.float32
-    freeze_backbones: bool = False
+    freeze_backbones: bool = False # MERGE extra
     
 
     def setup(self):
@@ -62,7 +62,7 @@ class FlaxHybridCLIPModule(nn.Module):
             kernel_init=jax.nn.initializers.normal(0.02),
             use_bias=False,
         )
-        self.logit_scale = self.param("logit_scale", jax.nn.initializers.ones, []) * 20
+        self.logit_scale = self.param("logit_scale", jax.nn.initializers.ones, []) * 20 # MERGE extra *20
         # self.logit_scale = self.param("logit_scale", jnp.array([20.]), [], mutable=False)
 
     def __call__(
@@ -99,12 +99,12 @@ class FlaxHybridCLIPModule(nn.Module):
         )
 
         image_embeds = vision_outputs[1]
-        if self.freeze_backbones:
+        if self.freeze_backbones: # MERGE extra
             image_embeds = jax.lax.stop_gradient(image_embeds)
         image_embeds = self.visual_projection(image_embeds)
 
         text_embeds = text_outputs[1]
-        if self.freeze_backbones:
+        if self.freeze_backbones: # MERGE extra
             text_embeds = jax.lax.stop_gradient(text_embeds)
         text_embeds = self.text_projection(text_embeds)
 
@@ -113,8 +113,8 @@ class FlaxHybridCLIPModule(nn.Module):
         text_embeds = text_embeds / jnp.linalg.norm(text_embeds, axis=-1, keepdims=True)
 
         # cosine similarity as logits
-        # logit_scale = jnp.exp(self.logit_scale)
-        logit_scale = jax.lax.stop_gradient(self.logit_scale)
+        # logit_scale = jnp.exp(self.logit_scale)             # MERGE commet out
+        logit_scale = jax.lax.stop_gradient(self.logit_scale) # MERGE extra
         logits_per_text = jnp.matmul(text_embeds, image_embeds.T) * logit_scale
         logits_per_image = logits_per_text.T
 
@@ -146,7 +146,10 @@ class FlaxHybridCLIP(FlaxPreTrainedModel):
         if input_shape is None:
             input_shape = ((1, 1), (1, config.vision_config.image_size, config.vision_config.image_size, 3))
 
-        module = self.module_class(config=config, dtype=dtype, **kwargs)
+        print(kwargs)
+
+        #module = self.module_class(config=config, dtype=dtype, **kwargs)       # MERGE extra but TypeError: FlaxHybridCLIPModule.__init__() got an unexpected keyword argument '_do_init'
+        module = self.module_class(config=config, dtype=dtype)  # , **kwargs)   # MERGE keep old
         super().__init__(config, module, input_shape=input_shape, seed=seed, dtype=dtype)
 
     def init_weights(self, rng: jax.random.PRNGKey, input_shape: Tuple, params: FrozenDict = None) -> FrozenDict:
@@ -217,7 +220,7 @@ class FlaxHybridCLIP(FlaxPreTrainedModel):
         attention_mask=None,
         position_ids=None,
         token_type_ids=None,
-        params: dict = None,
+        params: dict = None, # MERGE extra
         dropout_rng: jax.random.PRNGKey = None,
         train=False,
     ):
@@ -264,7 +267,7 @@ class FlaxHybridCLIP(FlaxPreTrainedModel):
             return text_features
 
         return self.module.apply(
-            {"params": params or self.params},
+            {"params": params or self.params}, # MERGE extra
             jnp.array(input_ids, dtype="i4"),
             jnp.array(attention_mask, dtype="i4"),
             jnp.array(position_ids, dtype="i4"),
@@ -301,7 +304,7 @@ class FlaxHybridCLIP(FlaxPreTrainedModel):
             return image_features
 
         return self.module.apply(
-            {"params": params or self.params},
+            {"params": params or self.params}, # MERGE extra
             jnp.array(pixel_values, dtype=jnp.float32),
             not train,
             method=_get_features,
