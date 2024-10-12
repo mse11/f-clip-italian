@@ -1,0 +1,11 @@
+jax
+flax
+transformers
+torch
+torchvision
+natsort
+stqdm
+pandas
+requests
+psutil
+streamlit

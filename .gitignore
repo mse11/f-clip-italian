@@ -138,3 +138,13 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
+
+
+# MSE
+__pycache__
+photos
+
+.idea/
+GENERATE_f-clip-italian
+*_template.*
+format.css
