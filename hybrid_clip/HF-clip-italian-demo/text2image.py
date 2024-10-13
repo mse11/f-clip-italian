@@ -19,24 +19,28 @@ from modeling_hybrid_clip import FlaxHybridCLIP
 
 import utils
 
-
-@st.cache(hash_funcs={FlaxHybridCLIP: lambda _: None})
+@st.cache_resource
 def get_model():
-    return FlaxHybridCLIP.from_pretrained("clip-italian/clip-italian")
+    return FlaxHybridCLIP.from_pretrained(
+        "clip-italian/clip-italian"
+        # `resume_download` is deprecated and will be removed in version 1.0.0.
+        # Downloads always resume when possible.
+        # If you want to force a new download, use `force_download=True`.
+        , resume_download=None
+    )
 
-
-@st.cache(
-    hash_funcs={
-        transformers.models.bert.tokenization_bert_fast.BertTokenizerFast: lambda _: None
-    }
-)
+@st.cache_resource
 def get_tokenizer():
     return AutoTokenizer.from_pretrained(
         "dbmdz/bert-base-italian-xxl-uncased", cache_dir="./", use_fast=True
+        # `resume_download` is deprecated and will be removed in version 1.0.0.
+        # Downloads always resume when possible.
+        # If you want to force a new download, use `force_download=True`.
+        , resume_download=None
     )
 
 
-@st.cache(suppress_st_warning=True)
+@st.cache_data
 def download_images():
     # from sentence_transformers import SentenceTransformer, util
     img_folder = "photos/"
@@ -66,7 +70,7 @@ def download_images():
     print("Done.")
 
 
-@st.cache()
+@st.cache_data
 def get_image_features(dataset_name):
     if dataset_name == "Unsplash":
         return jnp.load("static/features/features.npy")
@@ -74,7 +78,7 @@ def get_image_features(dataset_name):
         return jnp.load("static/features/CC_embeddings.npy")
 
 
-@st.cache()
+@st.cache_data
 def load_urls(dataset_name):
     if dataset_name == "CC":
         with open("static/CC_urls.txt") as fp:

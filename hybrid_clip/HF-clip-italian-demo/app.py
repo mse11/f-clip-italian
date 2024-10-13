@@ -19,5 +19,5 @@ st.sidebar.title("Explore our CLIP-Italian demo")
 logo = Image.open("static/img/clip_italian_logo.png")
 st.sidebar.image(logo, caption="CLIP-Italian logo")
 
-page = st.sidebar.radio("", list(PAGES.keys()))
+page = st.sidebar.radio("sb_radio_label", list(PAGES.keys()), label_visibility='hidden')
 PAGES[page].app()
